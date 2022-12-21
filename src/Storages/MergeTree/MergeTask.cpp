@@ -6,9 +6,13 @@
 
 #include <Common/logger_useful.h>
 #include <Common/ActionBlocker.h>
+<<<<<<< HEAD
+#include <Storages/StatisticsDescription.h>
+=======
 #include <Storages/LightweightDeleteDescription.h>
 #include <Storages/MergeTree/DataPartStorageOnDisk.h>
 
+>>>>>>> origin/master
 #include <DataTypes/ObjectUtils.h>
 #include <DataTypes/Serializations/SerializationInfo.h>
 #include <Storages/MergeTree/MergeTreeData.h>
@@ -47,6 +51,7 @@ static void extractMergingAndGatheringColumns(
     const NamesAndTypesList & storage_columns,
     const ExpressionActionsPtr & sorting_key_expr,
     const IndicesDescription & indexes,
+    const StatisticDescriptions & /* stats */,
     const MergeTreeData::MergingParams & merging_params,
     NamesAndTypesList & gathering_columns, Names & gathering_column_names,
     NamesAndTypesList & merging_columns, Names & merging_column_names)
@@ -161,6 +166,7 @@ bool MergeTask::ExecuteAndFinalizeHorizontalPart::prepare()
         global_ctx->storage_columns,
         global_ctx->metadata_snapshot->getSortingKey().expression,
         global_ctx->metadata_snapshot->getSecondaryIndices(),
+        global_ctx->metadata_snapshot->getStatistics(),
         ctx->merging_params,
         global_ctx->gathering_columns,
         global_ctx->gathering_column_names,
@@ -307,6 +313,8 @@ bool MergeTask::ExecuteAndFinalizeHorizontalPart::prepare()
         global_ctx->metadata_snapshot,
         global_ctx->merging_columns,
         MergeTreeIndexFactory::instance().getMany(global_ctx->metadata_snapshot->getSecondaryIndices()),
+        global_ctx->merging_columns,
+        global_ctx->metadata_snapshot->getStatistics(),
         ctx->compression_codec,
         global_ctx->txn,
         /*reset_columns=*/ true,
@@ -510,6 +518,8 @@ void MergeTask::VerticalMergeStage::prepareVerticalMergeForOneColumn() const
         /// because all of them were already recalculated and written
         /// as key part of vertical merge
         std::vector<MergeTreeIndexPtr>{},
+        ctx->executor->getHeader().getNamesAndTypesList(),
+        global_ctx->metadata_snapshot->getStatistics(),
         &global_ctx->written_offset_columns,
         global_ctx->to->getIndexGranularity());
 
