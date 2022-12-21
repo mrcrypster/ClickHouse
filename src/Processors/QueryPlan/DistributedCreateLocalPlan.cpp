@@ -43,7 +43,8 @@ std::unique_ptr<QueryPlan> createLocalPlan(
     size_t shard_count,
     size_t replica_num,
     size_t replica_count,
-    std::shared_ptr<ParallelReplicasReadingCoordinator> coordinator)
+    std::shared_ptr<ParallelReplicasReadingCoordinator> coordinator,
+    std::shared_ptr<ResizeProcessor> scheduler)
 {
     checkStackSize();
 
@@ -55,6 +56,7 @@ std::unique_ptr<QueryPlan> createLocalPlan(
     if (coordinator)
     {
         new_context->parallel_reading_coordinator = coordinator;
+        new_context->scheduler = scheduler;
         new_context->getClientInfo().interface = ClientInfo::Interface::LOCAL;
         new_context->getClientInfo().collaborate_with_initiator = true;
         new_context->getClientInfo().query_kind = ClientInfo::QueryKind::SECONDARY_QUERY;

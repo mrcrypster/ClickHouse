@@ -16,6 +16,8 @@
 #include <Common/RemoteHostFilter.h>
 #include <Common/ThreadPool.h>
 #include <Common/isLocalAddress.h>
+#include <Processors/ResizeProcessor.h>
+#include <Processors/Transforms/RemoteDependencyTransform.h>
 #include <base/types.h>
 #include <Storages/MergeTree/ParallelReplicasReadingCoordinator.h>
 #include <Storages/ColumnsDescription.h>
@@ -408,6 +410,19 @@ public:
     KitchenSink kitchen_sink;
 
     ParallelReplicasReadingCoordinatorPtr parallel_reading_coordinator;
+    mutable std::shared_ptr<ResizeProcessor> scheduler{nullptr};
+    mutable std::shared_ptr<std::vector<DependentProcessor *>> dependencies;
+
+    bool connectDepenciesIfNeeded() const
+    {
+        if (!dependencies || !scheduler)
+            return false;
+        assert(dependencies);
+        assert(scheduler);
+        for (auto * dependency : *dependencies)
+            dependency->connectToScheduler(*scheduler);
+        return true;
+    }
 
 private:
     using SampleBlockCache = std::unordered_map<std::string, Block>;

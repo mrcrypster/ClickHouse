@@ -9,6 +9,7 @@
 #include <Processors/Sources/RemoteSource.h>
 #include <Processors/Sources/DelayedSource.h>
 #include <Processors/Transforms/ExpressionTransform.h>
+#include <Processors/Transforms/RemoteDependencyTransform.h>
 #include <Interpreters/ActionsDAG.h>
 #include <Interpreters/InterpreterSelectQuery.h>
 #include <IO/ConnectionTimeoutsContext.h>
@@ -181,7 +182,7 @@ void ReadFromRemote::addLazyPipe(Pipes & pipes, const ClusterProxy::SelectStream
 
         if (try_results.empty() || local_delay < max_remote_delay)
         {
-            auto plan = createLocalPlan(query, header, context, stage, shard.shard_info.shard_num, shard_count, 0, 0, /*coordinator=*/nullptr);
+            auto plan = createLocalPlan(query, header, context, stage, shard.shard_info.shard_num, shard_count, 0, 0, /*coordinator=*/nullptr, /*scheduler*/nullptr);
 
             return std::move(*plan->buildQueryPipeline(
                 QueryPlanOptimizationSettings::fromContext(context),
@@ -336,6 +337,14 @@ void ReadFromParallelRemoteReplicasStep::initializePipeline(QueryPipelineBuilder
             ConnectionPoolPtrs{pool}, current_settings.load_balancing);
 
         addPipeForSingeReplica(pipes, pool_with_failover, replica_info);
+
+        pipes.back().addSimpleTransform([&](const Block & header) -> ProcessorPtr
+        {
+            auto remote_dependency = std::make_shared<RemoteDependencyTransform>(header);
+            context->dependencies->emplace_back(remote_dependency.get());
+            // remote_dependency->connectToScheduler(*context->scheduler);
+            return remote_dependency;
+        });
     }
 
     auto pipe = Pipe::unitePipes(std::move(pipes));

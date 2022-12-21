@@ -15,6 +15,7 @@
 #include <Processors/QueryPlan/ReadFromRemote.h>
 #include <Processors/QueryPlan/UnionStep.h>
 #include <Processors/QueryPlan/DistributedCreateLocalPlan.h>
+#include <Processors/ResizeProcessor.h>
 #include <QueryPipeline/Pipe.h>
 #include <Storages/SelectQueryInfo.h>
 #include <Storages/StorageReplicatedMergeTree.h>
@@ -257,10 +258,14 @@ void executeQueryWithParallelReplicas(
     if (auto it = stream_factory.objects_by_shard.find(shard_info.shard_num); it != stream_factory.objects_by_shard.end())
         replaceMissedSubcolumnsByConstants(stream_factory.storage_snapshot->object_columns, it->second, query_ast);
 
+    const auto & settings = context->getSettingsRef();
     auto all_replicas_count = shard_info.getAllNodeCount();
     auto coordinator = std::make_shared<ParallelReplicasReadingCoordinator>(all_replicas_count);
     auto remote_plan = std::make_unique<QueryPlan>();
     auto plans = std::vector<QueryPlanPtr>();
+
+    context->scheduler = std::make_shared<ResizeProcessor>(Block{}, shard_info.getRemoteNodeCount(), settings.max_threads); //TODO: settings.max_merge_tree_stream
+    context->dependencies = std::make_shared<std::vector<DependentProcessor *>>();
 
     /// This is a little bit weird, but we construct an "empty" coordinator without
     /// any specified reading/coordination method (like Default, InOrder, InReverseOrder)
@@ -278,7 +283,8 @@ void executeQueryWithParallelReplicas(
         /*shard_count*/1,
         0,
         all_replicas_count,
-        coordinator));
+        coordinator,
+        context->scheduler));
 
     if (!shard_info.hasRemoteConnections())
     {
@@ -289,7 +295,6 @@ void executeQueryWithParallelReplicas(
     }
 
     auto new_context = Context::createCopy(context);
-    // auto && [sort_description, sort_scope] = getRemoteShardsOutputStreamSortingProperties(plans, new_context);
     auto scalars = new_context->hasQueryContext() ? new_context->getQueryContext()->getScalars() : Scalars{};
     auto external_tables = new_context->getExternalTables();
 
