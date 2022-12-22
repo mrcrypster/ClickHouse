@@ -143,7 +143,9 @@ public:
                 ZstdDeflatingAppendableWriteBuffer::addEmptyBlock(*file_buf);
                 flush();
             }
-        } catch (...) {
+        }
+        catch (...)
+        {
             tryLogCurrentException(&Poco::Logger::get("Changelog"));
             throw;
         }
@@ -1068,8 +1070,11 @@ void Changelog::shutdown()
     if (write_thread.joinable())
         write_thread.join();
 
-    current_writer->finalize();
-    current_writer.reset();
+    if (current_writer)
+    {
+        current_writer->finalize();
+        current_writer.reset();
+    }
 }
 
 Changelog::~Changelog()
